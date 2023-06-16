@@ -1,0 +1,60 @@
+version: "3.9"
+services:
+  app:
+    container_name: teamE-app
+    build: ./docker/php
+    volumes:
+      - .:/var/www
+
+  web:
+    image: nginx
+    container_name: teamE-nginx
+    ports:
+      - 48080:80
+    volumes:
+      - .:/var/www
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    # working_dir: /var/www
+    depends_on:
+      - app
+
+  db:
+    platform: linux/amd64
+    container_name: teamE-db
+    build: ./docker/db
+    ports:
+      - "43306:3306"
+    environment:
+      MYSQL_DATABASE: teamE
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - "./docker/.data/log:/var/log/mysqllog"
+      - "./docker/db/tables:/docker-entrypoint-initdb.d"
+    restart: on-failure
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-proot"
+        ]
+      interval: 5s
+      retries: 5
+
+  phpmyadmin:
+    container_name: teamE-phpmyadmin
+    image: phpmyadmin
+    restart: on-failure
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - PMA_ARBITRARY=1
+      - PMA_HOSTS=teamE-db
+    ports:
+      - "45050:80"
